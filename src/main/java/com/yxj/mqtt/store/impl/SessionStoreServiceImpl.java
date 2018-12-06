@@ -1,12 +1,12 @@
 package com.yxj.mqtt.store.impl;
 
-import com.yxj.mqtt.store.ISessionStore;
-import com.yxj.mqtt.store.Session;
+import com.yxj.mqtt.store.SessionStoreService;
+import com.yxj.mqtt.bean.Session;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class SessionStore implements ISessionStore {
+public class SessionStoreServiceImpl implements SessionStoreService {
     private Map<String, Session> sessionCache = new ConcurrentHashMap<String, Session>();
     @Override
     public void put(String clientId, Session session) {

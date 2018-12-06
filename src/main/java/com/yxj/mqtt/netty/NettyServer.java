@@ -109,7 +109,7 @@ public class NettyServer extends NettyServerAbstract implements NettyService {
                     }
                 });
         try {
-            channel = this.serverBootstrap.bind(brokerProperties.getPort()).sync().channel();
+            channel = childBootstrap.bind(brokerProperties.getPort()).sync().channel();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }

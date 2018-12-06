@@ -1,6 +1,8 @@
 package com.yxj.mqtt.store;
 
-public interface ISessionStore {
+import com.yxj.mqtt.bean.Session;
+
+public interface SessionStoreService {
     /**
      * 存储会话
      */
