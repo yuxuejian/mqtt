@@ -54,6 +54,7 @@ public class MqttProtocol {
      */
     public void connect(Channel channel, MqttConnectMessage mqttMessage) {
         try {
+            System.out.println("服务端接收到连接消息");
             // 1、判断协议名称是否为MQTT
             if (!mqttMessage.variableHeader().name().equalsIgnoreCase("mqtt")) {
                 channel.close();
@@ -168,29 +169,33 @@ public class MqttProtocol {
 
     public void publish(Channel ctx, MqttPublishMessage mqttMessage) {
         // 发送消息给所有的客户端即可
-        if (mqttMessage.fixedHeader().qosLevel() == MqttQoS.AT_MOST_ONCE) {
-            int num = mqttMessage.payload().readableBytes();
-            byte[] messageBytes = new byte[num];
-            mqttMessage.payload().getBytes(mqttMessage.payload().readerIndex(), messageBytes);
-            sendPublishMessage(mqttMessage.variableHeader().topicName(), mqttMessage.fixedHeader().qosLevel(), messageBytes, false, false)  ;
-        }
+        try {
+            if (mqttMessage.fixedHeader().qosLevel() == MqttQoS.AT_MOST_ONCE) {
+                int num = mqttMessage.payload().readableBytes();
+                byte[] messageBytes = new byte[num];
+                mqttMessage.payload().getBytes(mqttMessage.payload().readerIndex(), messageBytes);
+                sendPublishMessage(mqttMessage.variableHeader().topicName(), mqttMessage.fixedHeader().qosLevel(), messageBytes, false, false);
+            }
 
-        if (mqttMessage.fixedHeader().qosLevel() == MqttQoS.AT_LEAST_ONCE) {
-            byte[] messageBytes = new byte[mqttMessage.payload().readableBytes()];
-            mqttMessage.payload().getBytes(mqttMessage.payload().readerIndex(), messageBytes);
-            sendPublishMessage(mqttMessage.variableHeader().topicName(), mqttMessage.fixedHeader().qosLevel(), messageBytes, false, false)  ;
-            sendPubAckMessage(ctx, mqttMessage.variableHeader().packetId());
-        }
+            if (mqttMessage.fixedHeader().qosLevel() == MqttQoS.AT_LEAST_ONCE) {
+                byte[] messageBytes = new byte[mqttMessage.payload().readableBytes()];
+                mqttMessage.payload().getBytes(mqttMessage.payload().readerIndex(), messageBytes);
+                sendPublishMessage(mqttMessage.variableHeader().topicName(), mqttMessage.fixedHeader().qosLevel(), messageBytes, false, false);
+                sendPubAckMessage(ctx, mqttMessage.variableHeader().packetId());
+            }
 
-        if (mqttMessage.fixedHeader().qosLevel() == MqttQoS.EXACTLY_ONCE) {
-            byte[] messageBytes = new byte[mqttMessage.payload().readableBytes()];
-            mqttMessage.payload().getBytes(mqttMessage.payload().readerIndex(), messageBytes);
-            sendPublishMessage(mqttMessage.variableHeader().topicName(), mqttMessage.fixedHeader().qosLevel(), messageBytes, false, false)  ;
-            sendPucRecMessage(ctx, mqttMessage.variableHeader().packetId());
-        }
+            if (mqttMessage.fixedHeader().qosLevel() == MqttQoS.EXACTLY_ONCE) {
+                byte[] messageBytes = new byte[mqttMessage.payload().readableBytes()];
+                mqttMessage.payload().getBytes(mqttMessage.payload().readerIndex(), messageBytes);
+                sendPublishMessage(mqttMessage.variableHeader().topicName(), mqttMessage.fixedHeader().qosLevel(), messageBytes, false, false);
+                sendPucRecMessage(ctx, mqttMessage.variableHeader().packetId());
+            }
 
-        if (mqttMessage.fixedHeader().isRetain()) {
+            if (mqttMessage.fixedHeader().isRetain()) {
 
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -233,25 +238,25 @@ public class MqttProtocol {
         if (this.validTopicFilter(topicSubscriptions)) {
             String clientId = (String) ctx.attr(AttributeKey.valueOf("clientId")).get();
             List<Integer> mqttQoSList = new ArrayList<Integer>();
-            topicSubscriptions.forEach(topicSubscription -> {
+            for (MqttTopicSubscription topicSubscription : topicSubscriptions) {
                 String topicFilter = topicSubscription.topicName();
                 MqttQoS mqttQoS = topicSubscription.qualityOfService();
                 SubscribeMessage subscribeStore = new SubscribeMessage(clientId, topicFilter, mqttQoS.value());
                 subscribeMessageStoreService.put(topicFilter, subscribeStore);
                 mqttQoSList.add(mqttQoS.value());
                 LOGGER.debug("SUBSCRIBE - clientId: {}, topFilter: {}, QoS: {}", clientId, topicFilter, mqttQoS.value());
-            });
+            }
             MqttSubAckMessage subAckMessage = (MqttSubAckMessage) MqttMessageFactory.newMessage(
                     new MqttFixedHeader(MqttMessageType.SUBACK, false, MqttQoS.AT_MOST_ONCE, false, 0),
                     MqttMessageIdVariableHeader.from(mqttMessage.variableHeader().messageId()),
                     new MqttSubAckPayload(mqttQoSList));
             ctx.writeAndFlush(subAckMessage);
             // 发布保留消息
-            topicSubscriptions.forEach(topicSubscription -> {
+            for (MqttTopicSubscription topicSubscription : topicSubscriptions) {
                 String topicFilter = topicSubscription.topicName();
                 MqttQoS mqttQoS = topicSubscription.qualityOfService();
                 this.sendRetainMessage(ctx, topicFilter, mqttQoS);
-            });
+            }
         } else {
             ctx.close();
         }
@@ -344,21 +349,21 @@ public class MqttProtocol {
     }
 
     private boolean validTopicFilter(List<MqttTopicSubscription> topicSubscriptions) {
-        for (MqttTopicSubscription topicSubscription : topicSubscriptions) {
-            String topicFilter = topicSubscription.topicName();
-            // 以#或+符号开头的、以/符号结尾的及不存在/符号的订阅按非法订阅处理, 这里没有参考标准协议
-            if (StrUtil.startWith(topicFilter, '#') || StrUtil.startWith(topicFilter, '+') || StrUtil.endWith(topicFilter, '/') || !StrUtil.contains(topicFilter, '/')) return false;
-            if (StrUtil.contains(topicFilter, '#')) {
-                // 不是以/#字符串结尾的订阅按非法订阅处理
-                if (!StrUtil.endWith(topicFilter, "/#")) return false;
-                // 如果出现多个#符号的订阅按非法订阅处理
-                if (StrUtil.count(topicFilter, '#') > 1) return false;
-            }
-            if (StrUtil.contains(topicFilter, '+')) {
-                //如果+符号和/+字符串出现的次数不等的情况按非法订阅处理
-                if (StrUtil.count(topicFilter, '+') != StrUtil.count(topicFilter, "/+")) return false;
-            }
-        }
+//        for (MqttTopicSubscription topicSubscription : topicSubscriptions) {
+//            String topicFilter = topicSubscription.topicName();
+//            // 以#或+符号开头的、以/符号结尾的及不存在/符号的订阅按非法订阅处理, 这里没有参考标准协议
+//            if (StrUtil.startWith(topicFilter, '#') || StrUtil.startWith(topicFilter, '+') || StrUtil.endWith(topicFilter, '/') || !StrUtil.contains(topicFilter, '/')) return false;
+//            if (StrUtil.contains(topicFilter, '#')) {
+//                // 不是以/#字符串结尾的订阅按非法订阅处理
+//                if (!StrUtil.endWith(topicFilter, "/#")) return false;
+//                // 如果出现多个#符号的订阅按非法订阅处理
+//                if (StrUtil.count(topicFilter, '#') > 1) return false;
+//            }
+//            if (StrUtil.contains(topicFilter, '+')) {
+//                //如果+符号和/+字符串出现的次数不等的情况按非法订阅处理
+//                if (StrUtil.count(topicFilter, '+') != StrUtil.count(topicFilter, "/+")) return false;
+//            }
+//        }
         return true;
     }
 

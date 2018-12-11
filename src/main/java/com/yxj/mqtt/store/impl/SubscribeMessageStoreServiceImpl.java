@@ -11,40 +11,40 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class SubscribeMessageStoreServiceImpl implements SubscribeMessageStoreService {
-    private ConcurrentHashMap<String, ConcurrentHashMap<String, SubscribeMessage>> subscribeNotWildcardCache;
+    private ConcurrentHashMap<String, ConcurrentHashMap<String, SubscribeMessage>> subscribeNotWildcardCache = new ConcurrentHashMap<>();
 
-    private ConcurrentHashMap<String, ConcurrentHashMap<String, SubscribeMessage>> subscribeWildcardCache;
+//    private ConcurrentHashMap<String, ConcurrentHashMap<String, SubscribeMessage>> subscribeWildcardCache;
 
     @Override
     public void put(String topicFilter, SubscribeMessage subscribeMessage) {
-        if (StrUtil.contains(topicFilter, '#') || StrUtil.contains(topicFilter, '+')) {
-            ConcurrentHashMap<String, SubscribeMessage> map =
-                    subscribeWildcardCache.containsKey(topicFilter) ? subscribeWildcardCache.get(topicFilter) : new ConcurrentHashMap<String, SubscribeMessage>();
-            map.put(subscribeMessage.getClientId(), subscribeMessage);
-            subscribeWildcardCache.put(topicFilter, map);
-        } else {
+//        if (StrUtil.contains(topicFilter, '#') || StrUtil.contains(topicFilter, '+')) {
+//            ConcurrentHashMap<String, SubscribeMessage> map =
+//                    subscribeWildcardCache.containsKey(topicFilter) ? subscribeWildcardCache.get(topicFilter) : new ConcurrentHashMap<String, SubscribeMessage>();
+//            map.put(subscribeMessage.getClientId(), subscribeMessage);
+//            subscribeWildcardCache.put(topicFilter, map);
+//        } else {
             ConcurrentHashMap<String, SubscribeMessage> map =
                     subscribeNotWildcardCache.containsKey(topicFilter) ? subscribeNotWildcardCache.get(topicFilter) : new ConcurrentHashMap<String, SubscribeMessage>();
             map.put(subscribeMessage.getClientId(), subscribeMessage);
             subscribeNotWildcardCache.put(topicFilter, map);
-        }
+//        }
     }
 
     @Override
     public void remove(String topicFilter, String clientId) {
-        if (StrUtil.contains(topicFilter, '#') || StrUtil.contains(topicFilter, '+')) {
-            if (subscribeWildcardCache.containsKey(topicFilter)) {
-                ConcurrentHashMap<String, SubscribeMessage> map = subscribeWildcardCache.get(topicFilter);
-                if (map.containsKey(clientId)) {
-                    map.remove(clientId);
-                    if (map.size() > 0) {
-                        subscribeWildcardCache.put(topicFilter, map);
-                    } else {
-                        subscribeWildcardCache.remove(topicFilter);
-                    }
-                }
-            }
-        } else {
+//        if (StrUtil.contains(topicFilter, '#') || StrUtil.contains(topicFilter, '+')) {
+//            if (subscribeWildcardCache.containsKey(topicFilter)) {
+//                ConcurrentHashMap<String, SubscribeMessage> map = subscribeWildcardCache.get(topicFilter);
+//                if (map.containsKey(clientId)) {
+//                    map.remove(clientId);
+//                    if (map.size() > 0) {
+//                        subscribeWildcardCache.put(topicFilter, map);
+//                    } else {
+//                        subscribeWildcardCache.remove(topicFilter);
+//                    }
+//                }
+//            }
+//        } else {
             if (subscribeNotWildcardCache.containsKey(topicFilter)) {
                 ConcurrentHashMap<String, SubscribeMessage> map = subscribeNotWildcardCache.get(topicFilter);
                 if (map.containsKey(clientId)) {
@@ -56,7 +56,7 @@ public class SubscribeMessageStoreServiceImpl implements SubscribeMessageStoreSe
                     }
                 }
             }
-        }
+//        }
     }
 
     @Override
@@ -71,18 +71,18 @@ public class SubscribeMessageStoreServiceImpl implements SubscribeMessageStoreSe
                     subscribeNotWildcardCache.remove(entry.getKey());
                 }
             }
-        };
-        for (Map.Entry<String, ConcurrentHashMap<String, SubscribeMessage>> entry : subscribeWildcardCache.entrySet()){
-            ConcurrentHashMap<String, SubscribeMessage> map = entry.getValue();
-            if (map.containsKey(clientId)) {
-                map.remove(clientId);
-                if (map.size() > 0) {
-                    subscribeWildcardCache.put(entry.getKey(), map);
-                } else {
-                    subscribeWildcardCache.remove(entry.getKey());
-                }
-            }
-        };
+        }
+//        for (Map.Entry<String, ConcurrentHashMap<String, SubscribeMessage>> entry : subscribeWildcardCache.entrySet()){
+//            ConcurrentHashMap<String, SubscribeMessage> map = entry.getValue();
+//            if (map.containsKey(clientId)) {
+//                map.remove(clientId);
+//                if (map.size() > 0) {
+//                    subscribeWildcardCache.put(entry.getKey(), map);
+//                } else {
+//                    subscribeWildcardCache.remove(entry.getKey());
+//                }
+//            }
+//        };
     }
 
     @Override
@@ -94,32 +94,32 @@ public class SubscribeMessageStoreServiceImpl implements SubscribeMessageStoreSe
             List<SubscribeMessage> list = new ArrayList<SubscribeMessage>(collection);
             subscribeStores.addAll(list);
         }
-        for (Map.Entry<String, ConcurrentHashMap<String, SubscribeMessage>> entry : subscribeWildcardCache.entrySet()){
-            String topicFilter = entry.getKey();
-            if (StrUtil.split(topic, '/').size() >= StrUtil.split(topicFilter, '/').size()) {
-                List<String> splitTopics = StrUtil.split(topic, '/');
-                List<String> spliteTopicFilters = StrUtil.split(topicFilter, '/');
-                String newTopicFilter = "";
-                for (int i = 0; i < spliteTopicFilters.size(); i++) {
-                    String value = spliteTopicFilters.get(i);
-                    if (value.equals("+")) {
-                        newTopicFilter = newTopicFilter + "+/";
-                    } else if (value.equals("#")) {
-                        newTopicFilter = newTopicFilter + "#/";
-                        break;
-                    } else {
-                        newTopicFilter = newTopicFilter + splitTopics.get(i) + "/";
-                    }
-                }
-                newTopicFilter = StrUtil.removeSuffix(newTopicFilter, "/");
-                if (topicFilter.equals(newTopicFilter)) {
-                    ConcurrentHashMap<String, SubscribeMessage> map = entry.getValue();
-                    Collection<SubscribeMessage> collection = map.values();
-                    List<SubscribeMessage> list = new ArrayList<SubscribeMessage>(collection);
-                    subscribeStores.addAll(list);
-                }
-            }
-        };
+//        for (Map.Entry<String, ConcurrentHashMap<String, SubscribeMessage>> entry : subscribeWildcardCache.entrySet()){
+//            String topicFilter = entry.getKey();
+//            if (StrUtil.split(topic, '/').size() >= StrUtil.split(topicFilter, '/').size()) {
+//                List<String> splitTopics = StrUtil.split(topic, '/');
+//                List<String> spliteTopicFilters = StrUtil.split(topicFilter, '/');
+//                String newTopicFilter = "";
+//                for (int i = 0; i < spliteTopicFilters.size(); i++) {
+//                    String value = spliteTopicFilters.get(i);
+//                    if (value.equals("+")) {
+//                        newTopicFilter = newTopicFilter + "+/";
+//                    } else if (value.equals("#")) {
+//                        newTopicFilter = newTopicFilter + "#/";
+//                        break;
+//                    } else {
+//                        newTopicFilter = newTopicFilter + splitTopics.get(i) + "/";
+//                    }
+//                }
+//                newTopicFilter = StrUtil.removeSuffix(newTopicFilter, "/");
+//                if (topicFilter.equals(newTopicFilter)) {
+//                    ConcurrentHashMap<String, SubscribeMessage> map = entry.getValue();
+//                    Collection<SubscribeMessage> collection = map.values();
+//                    List<SubscribeMessage> list = new ArrayList<SubscribeMessage>(collection);
+//                    subscribeStores.addAll(list);
+//                }
+//            }
+//        }
         return subscribeStores;
     }
 

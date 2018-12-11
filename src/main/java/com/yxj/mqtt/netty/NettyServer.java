@@ -155,7 +155,7 @@ public class NettyServer extends NettyServerAbstract implements NettyService {
     }
 
     private boolean useEpoll() {
-        return Epoll.isAvailable() && brokerProperties.isUseEpoll();
+        return brokerProperties.isUseEpoll();//Epoll.isAvailable() &&
     }
 }
 

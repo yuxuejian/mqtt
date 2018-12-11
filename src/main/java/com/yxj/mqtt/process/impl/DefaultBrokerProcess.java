@@ -19,6 +19,7 @@ public class DefaultBrokerProcess implements BrokerProcess {
                 break;
             case PUBLISH:
                 mqttProtocol.publish(channel, (MqttPublishMessage) mqttMessage);
+                ((MqttPublishMessage) mqttMessage).payload().release();
                 break;
             case PUBACK:
                 mqttProtocol.pubAck(channel, (MqttMessageIdVariableHeader) mqttMessage.variableHeader());

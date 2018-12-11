@@ -5,6 +5,8 @@ import com.yxj.mqtt.thread.RequestTask;
 import com.yxj.mqtt.utils.Pair;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttMessage;
+import io.netty.handler.codec.mqtt.MqttMessageType;
+import io.netty.handler.codec.mqtt.MqttPublishMessage;
 
 import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
@@ -26,6 +28,10 @@ public abstract class NettyServerAbstract {
                 }
             };
             final RequestTask task = new RequestTask(run, ctx.channel(), msg);
+            // publish中refCnt为0，需要retain
+            if (msg.fixedHeader().messageType() == MqttMessageType.PUBLISH) {
+                ((MqttPublishMessage) msg).payload().retain();
+            }
             pair.getObject2().submit(task);
         }
     }
